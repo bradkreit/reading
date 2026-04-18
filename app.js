@@ -876,18 +876,14 @@
       + 'Return exactly 4-5 items, ordered by strength of connection.';
 
     try {
-      var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      var resp = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 600,
-          messages: [{ role: 'user', content: prompt }]
-        })
+        body: JSON.stringify({ prompt: prompt })
       });
+      if (!resp.ok) throw new Error('no claude proxy');
       var data = await resp.json();
       var text = (data.content || []).filter(function(c) { return c.type === 'text'; }).map(function(c) { return c.text; }).join('');
-      // strip markdown fences if present
       text = text.replace(/```json|```/g, '').trim();
       var parsed = JSON.parse(text);
       var results = parsed.map(function(item) {
@@ -909,78 +905,74 @@
               scale: 1, panX: 0, panY: 0, isPanning: false, lastPanX: 0, lastPanY: 0,
               hoveredBook: null, expandedBook: null, hlNodes: [] };
 
-  async function computeMapPositions() {
-    // Check localStorage cache first
-    var cached = localStorage.getItem('rw_map_positions_v2');
-    if (cached) {
-      try { return JSON.parse(cached); }
-      catch(e) {}
-    }
-
-    // Build book data for Claude
+  function computeMapPositions() {
+    // Build book list from live highlights — works automatically with new books
     var books = {};
     HIGHLIGHTS.forEach(function(h) {
-      if (!books[h.title]) books[h.title] = { author: h.author, theme: h.theme, count: 0, samples: [] };
+      if (!books[h.title]) books[h.title] = { author: h.author, theme: h.theme, count: 0 };
       books[h.title].count++;
-      if (books[h.title].samples.length < 2) books[h.title].samples.push(h.text.slice(0, 80));
     });
 
-    var bookList = Object.entries(books).map(function(e, i) {
-      return i + ': ' + e[0].slice(0, 50) + ' [' + e[1].theme + '] — ' + e[1].samples[0];
-    }).join('\n');
+    // Theme anchor points — defines where each cluster sits on the map
+    // x: left=individual/personal, right=systemic/societal
+    // y: top=abstract, bottom=concrete/narrative
+    var ANCHORS = {
+      'Decision-Making & Thinking':    { x: -20, y: -38 },
+      'Systems, Technology & Society': { x:  42, y: -35 },
+      'Economics, Money & Finance':    { x:  22, y:   8 },
+      'America, Politics & Culture':   { x:  58, y:  45 },
+      'Self, Time & Wellbeing':        { x: -45, y:  18 },
+      'Maintenance, Making & Craft':   { x: -18, y:  15 },
+      'Kurt Vonnegut':                 { x: -72, y:  -8 },
+      'Information & Language':        { x: -10, y: -70 },
+      'Other':                         { x:   0, y:  55 }
+    };
 
-    var prompt = 'You are creating a 2D conceptual map of books based on their ideas.\n\n'
-      + 'Place these books in a 2D space (x: -100 to 100, y: -100 to 100) so that:\n'
-      + '- Books with closely related IDEAS are near each other\n'
-      + '- Books with contrasting or unrelated ideas are far apart\n'
-      + '- Use the full space — spread books out, avoid clustering everything in the center\n'
-      + '- Consider: systems thinking, decision-making, economics, politics, personal growth, fiction, technology\n\n'
-      + 'BOOKS:\n' + bookList + '\n\n'
-      + 'Respond with ONLY a JSON array, no markdown:\n'
-      + '[{"index": 0, "x": 45, "y": -23}, ...]\n'
-      + 'Return ALL ' + Object.keys(books).length + ' books.';
-
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+    // Group books by theme
+    var byTheme = {};
+    Object.entries(books).forEach(function(e) {
+      var t = e[1].theme || 'Other';
+      if (!byTheme[t]) byTheme[t] = [];
+      byTheme[t].push({ title: e[0], author: e[1].author, theme: t, count: e[1].count });
     });
-    var data = await resp.json();
-    var text = (data.content || []).filter(function(c) { return c.type === 'text'; }).map(function(c) { return c.text; }).join('');
-    text = text.replace(/```json|```/g, '').trim();
-    var coords = JSON.parse(text);
 
-    // Combine with book data
-    var bookEntries = Object.entries(books);
-    var positions = coords.map(function(c) {
-      var entry = bookEntries[c.index];
-      if (!entry) return null;
-      return {
-        title: entry[0],
-        author: entry[1].author,
-        theme: entry[1].theme,
-        count: entry[1].count,
-        x: c.x,
-        y: c.y
-      };
-    }).filter(Boolean);
+    // For each theme, arrange books in a spiral cluster around the anchor
+    // Most-read book sits at the center, others spiral outward
+    var positions = [];
+    Object.entries(byTheme).forEach(function(entry) {
+      var theme = entry[0];
+      var group = entry[1];
+      var anchor = ANCHORS[theme] || { x: 0, y: 0 };
 
-    localStorage.setItem('rw_map_positions_v2', JSON.stringify(positions));
-    return positions;
+      group.sort(function(a, b) { return b.count - a.count; });
+
+      group.forEach(function(b, i) {
+        if (i === 0) {
+          positions.push({ title: b.title, author: b.author, theme: b.theme, count: b.count, x: anchor.x, y: anchor.y });
+        } else {
+          var ring = Math.ceil(i / 6);
+          var posInRing = (i - 1) % 6;
+          var angle = (posInRing / 6) * Math.PI * 2 + (ring * 0.4);
+          var radius = ring * 18;
+          positions.push({
+            title: b.title, author: b.author, theme: b.theme, count: b.count,
+            x: Math.max(-95, Math.min(95, anchor.x + Math.cos(angle) * radius)),
+            y: Math.max(-95, Math.min(95, anchor.y + Math.sin(angle) * radius))
+          });
+        }
+      });
+    });
+
+    return Promise.resolve(positions);
   }
 
   function renderIdeaMap() {
     var mc = document.getElementById('main');
     mc.innerHTML = '<div id="map-wrap">'
       + '<div id="map-toolbar">'
-      + '<span id="map-status">Building your idea map with Claude…</span>'
+      + '<span id="map-status">Building your idea map…</span>'
       + '<div id="map-tools">'
       + '<button class="map-tool-btn" id="map-reset-btn">Reset view</button>'
-      + '<button class="map-tool-btn" id="map-clear-cache-btn">Refresh map</button>'
       + '</div></div>'
       + '<div id="map-hint">Scroll to zoom &middot; Drag to pan &middot; Click a book to explore its highlights</div>'
       + '<canvas id="map-canvas"></canvas>'
@@ -1011,12 +1003,6 @@
       MAP.expandedBook = null; MAP.hlNodes = [];
       document.getElementById('map-detail').innerHTML = '';
       drawMap();
-    });
-    document.getElementById('map-clear-cache-btn').addEventListener('click', function() {
-      localStorage.removeItem('rw_map_positions_v2');
-      mapPositions = null; MAP.expandedBook = null; MAP.hlNodes = [];
-      document.getElementById('map-status').textContent = 'Rebuilding map…';
-      loadAndDrawMap();
     });
 
     loadAndDrawMap();
