@@ -283,6 +283,42 @@ body { font-family: "DM Sans", sans-serif; background: var(--bg); color: var(--t
 .empty { padding: 4rem 2rem; text-align: center; color: var(--muted); font-size: 13px; }
 .empty-sm { padding: 1rem 16px; font-size: 13px; color: var(--muted); }
 
+/* ── Concept search ── */
+.concept-wrap { max-width: 860px; }
+.concept-header { margin-bottom: 1.25rem; }
+.concept-header h2 { font-family: "Instrument Serif", serif; font-size: 22px; margin-bottom: 6px; }
+.concept-header p { font-size: 13px; color: var(--muted); margin-bottom: 1rem; }
+.concept-input-wrap { display: flex; gap: 8px; align-items: center; }
+.concept-input-wrap input { flex: 1; max-width: 520px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r); font-family: "DM Sans", sans-serif; font-size: 14px; background: var(--bg); color: var(--text); outline: none; }
+.concept-input-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-l); }
+.concept-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.concept-book-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+
+/* ── Threads ── */
+.threads-intro { margin-bottom: 1.5rem; }
+.threads-intro h2 { font-family: "Instrument Serif", serif; font-size: 22px; margin-bottom: 6px; }
+.threads-intro p { font-size: 13px; color: var(--muted); }
+.threads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 1rem; }
+.thread-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rl); overflow: hidden; cursor: pointer; transition: box-shadow .15s, transform .1s; display: flex; }
+.thread-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); transform: translateY(-1px); }
+.thread-card-accent { width: 4px; flex-shrink: 0; }
+.thread-card-body { padding: 14px 16px; flex: 1; }
+.thread-name { font-family: "Instrument Serif", serif; font-size: 16px; margin-bottom: 5px; }
+.thread-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+.thread-stats { display: flex; gap: 10px; }
+.thread-stat { font-size: 11px; color: var(--faint); background: var(--surface2); border-radius: 6px; padding: 2px 8px; }
+.thread-detail-header { padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rl); margin-bottom: 10px; }
+.thread-detail-name { font-family: "Instrument Serif", serif; font-size: 20px; margin-bottom: 4px; }
+.thread-detail-desc { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.thread-detail-stats { font-size: 12px; color: var(--faint); }
+.thread-book-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.thread-book-pill { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 2px 10px; color: var(--muted); }
+
+/* ── Theme pills on cards ── */
+.hl-theme-pill { font-size: 10px; border-radius: 8px; padding: 2px 8px; }
+.hl-theme-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; margin-right: 4px; vertical-align: middle; }
+.dd-theme-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
 /* ── Claude connections ── */
 .conn-loading { display: flex; align-items: center; gap: 10px; padding: 1.25rem 16px; font-size: 13px; color: var(--muted); }
 .conn-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
@@ -343,6 +379,8 @@ body { font-family: "DM Sans", sans-serif; background: var(--bg); color: var(--t
   <div class="topbar">
     <div class="logo">Readwise <span>Highlights</span></div>
     <button class="tab-btn on" data-tab="highlights">Highlights</button>
+    <button class="tab-btn" data-tab="threads">Threads</button>
+    <button class="tab-btn" data-tab="concept">Concept Search</button>
     <button class="tab-btn" data-tab="network">Theme Network</button>
     <button class="tab-btn" data-tab="map">Idea Map</button>
     <div class="tab-div"></div>
@@ -372,7 +410,8 @@ body { font-family: "DM Sans", sans-serif; background: var(--bg); color: var(--t
         </div>
       </div>
       <div class="vbtns">
-        <button class="on" data-view="grouped">Grouped</button>
+        <button class="on" data-view="excerpts">By theme</button>
+        <button data-view="grouped">By book</button>
         <button data-view="flat">Flat</button>
         <button data-view="conn">Connections</button>
       </div>
